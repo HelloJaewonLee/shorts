@@ -120,7 +120,8 @@ def _ytdlp(args: list[str]) -> bool:
         auth = ["--cookies-from-browser", os.environ["YTDLP_BROWSER"]]
     elif os.environ.get("YTDLP_COOKIES"):
         auth = ["--cookies", os.environ["YTDLP_COOKIES"]]
-    res = subprocess.run(["yt-dlp", "--no-warnings", *auth, *args], capture_output=True, text=True)
+    res = subprocess.run(["yt-dlp", "--no-warnings", "--ffmpeg-location", ff.ffmpeg_bin(), *auth, *args],
+                         capture_output=True, text=True)
     return res.returncode == 0
 
 

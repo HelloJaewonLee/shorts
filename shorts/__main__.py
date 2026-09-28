@@ -39,7 +39,7 @@ def fetch_source(src: str, job_dir: Path) -> Path:
     if src.startswith(("http://", "https://")):
         print("영상 다운로드 중...")
         subprocess.run(
-            ["yt-dlp", "-f", "bv*[height<=1080]+ba/b[height<=1080]", "--merge-output-format", "mp4",
+            ["yt-dlp", "--ffmpeg-location", ff.ffmpeg_bin(), "-f", "bv*[height<=1080]+ba/b[height<=1080]", "--merge-output-format", "mp4",
              "-o", str(job_dir / "source.%(ext)s"), src],
             check=True,
         )
