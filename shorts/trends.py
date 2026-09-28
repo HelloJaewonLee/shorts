@@ -12,9 +12,10 @@ import statistics
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-import anthropic
 import requests
 from pydantic import BaseModel
+
+from . import llm
 
 API = "https://www.googleapis.com/youtube/v3"
 MAX_SHORT_SEC = 180
@@ -154,7 +155,6 @@ class Insight(BaseModel):
 
 
 def classify(rows: list[dict], model: str) -> dict[str, Tag]:
-    client = anthropic.Anthropic()
     tags: dict[str, Tag] = {}
     for i in range(0, len(rows), 60):
         batch = rows[i:i + 60]
@@ -162,43 +162,35 @@ def classify(rows: list[dict], model: str) -> dict[str, Tag]:
             json.dumps({"id": r["id"], "title": r["title"], "desc": r["desc"][:120], "tags": r["tags"]}, ensure_ascii=False)
             for r in batch
         )
-        resp = client.messages.parse(
-            model=model, max_tokens=16000, thinking={"type": "adaptive"}, output_config={"effort": "low"},
-            system=(
+        result = llm.parse(
+            Tagging,
+            (
                 "유튜브 쇼츠를 제목·설명·태그만 보고 분류한다.\n"
                 f"format은 다음 중 하나: {', '.join(FORMATS)}\n"
                 "hook_type은 제목이 클릭을 부르는 방식 (질문형, 충격 사실, 숫자·순위, 반전 예고, 공감, 경고, 비밀 공개 등) 중 짧게.\n"
                 "topic은 소재를 2~4단어로."
             ),
-            messages=[{"role": "user", "content": f"모든 영상을 분류해줘.\n{lines}"}],
-            output_format=Tagging,
+            f"모든 영상을 분류해줘.\n{lines}",
+            effort="low",
         )
-        if resp.parsed_output:
-            tags.update({t.id: t for t in resp.parsed_output.videos})
+        tags.update({t.id: t for t in result.videos})
     return tags
 
 
 def summarize(stats: list[dict], top: list[dict], keyword: str, model: str) -> Insight:
-    client = anthropic.Anthropic()
-    resp = client.messages.parse(
-        model=model, max_tokens=16000, thinking={"type": "adaptive"}, output_config={"effort": "high"},
-        system=(
+    return llm.parse(
+        Insight,
+        (
             "너는 쇼츠 채널 전략가다. 포맷별 통계와 성과 상위 영상을 보고 결론을 낸다.\n"
             "- '많이 올라오는 포맷'(공급)과 '잘 되는 포맷'(성과도·일평균 조회수)을 구분해서 말한다. "
             "공급은 적은데 성과가 높은 포맷이 기회다.\n"
             "- hook_templates: 상위 영상 제목에서 뽑은 재사용 가능한 첫 문장 틀 (예: '___인데 어떻게 ___할까요?').\n"
             "- guide: 롱폼 영상에서 쇼츠 구간을 고를 때 쓸 선별 기준. 5줄 이내 한국어 지시문."
         ),
-        messages=[{
-            "role": "user",
-            "content": f"키워드: {keyword}\n\n<format_stats>\n{json.dumps(stats, ensure_ascii=False)}\n</format_stats>\n"
-                       f"<top_videos>\n{json.dumps(top, ensure_ascii=False)}\n</top_videos>",
-        }],
-        output_format=Insight,
+        f"키워드: {keyword}\n\n<format_stats>\n{json.dumps(stats, ensure_ascii=False)}\n</format_stats>\n"
+        f"<top_videos>\n{json.dumps(top, ensure_ascii=False)}\n</top_videos>",
+        effort="high",
     )
-    if resp.parsed_output is None:
-        raise RuntimeError("요약 생성 실패")
-    return resp.parsed_output
 
 
 # ---------- 집계·리포트 ----------

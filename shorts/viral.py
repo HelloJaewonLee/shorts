@@ -5,7 +5,6 @@
 - video   : 영상마다 첫 화면·컷 속도·대사·다시 본 구간을 모아 Claude가 훅·구성·자막 스타일·터진 이유를 정리한다.
 분석 결과의 playbook은 제작 설정(길이, 자막, 제목 틀, 업로드 시간)에 그대로 옮겨 쓸 수 있게 만든다.
 """
-import base64
 import json
 import os
 import re
@@ -16,11 +15,10 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-import anthropic
 import requests
 from pydantic import BaseModel
 
-from . import ff, trends
+from . import ff, llm, trends
 from .trends import _get, fetch_channels, fmt_num, grade, iso_seconds
 
 JST = timezone(timedelta(hours=9))
@@ -249,24 +247,17 @@ class Playbook(BaseModel):
     avoid: list[str]
 
 
-def _image_block(path: str) -> dict:
-    return {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
-                                        "data": base64.b64encode(Path(path).read_bytes()).decode()}}
-
-
 def breakdown(data: dict, model: str) -> Breakdown:
-    content: list[dict] = []
-    for fr in data["frames"]:
-        content.append({"type": "text", "text": f"화면 캡처 ({fr['t']}초)" if data["frame_source"] == "video"
-                        else "스토리보드 격자 (왼쪽 위부터 시간순, 저해상도)"})
-        content.append(_image_block(fr["path"]))
+    if data["frame_source"] == "video":
+        frames_note = "첨부 이미지는 순서대로 " + ", ".join(f"{fr['t']}초" for fr in data["frames"]) + " 화면 캡처다."
+    elif data["frames"]:
+        frames_note = "첨부 이미지는 스토리보드 격자다 (왼쪽 위부터 시간순, 저해상도라 글씨는 읽기 어려울 수 있음)."
+    else:
+        frames_note = "화면 자료 없음."
     meta = {k: v for k, v in data.items() if k not in ("frames", "transcript")}
-    content.append({"type": "text", "text": f"<meta>\n{json.dumps(meta, ensure_ascii=False)}\n</meta>\n"
-                                            f"<transcript>\n{data['transcript']}\n</transcript>\n\n이 쇼츠를 분석해줘."})
-    client = anthropic.Anthropic()
-    resp = client.messages.parse(
-        model=model, max_tokens=8000, thinking={"type": "adaptive"}, output_config={"effort": "medium"},
-        system=(
+    return llm.parse(
+        Breakdown,
+        (
             "너는 쇼츠 분석가다. 화면 캡처, 대사, 수치, 다시 본 구간(replay_peaks)을 근거로 이 영상이 왜 터졌는지 분해한다.\n"
             "- hook_text: 첫 1~3초의 화면 문구나 첫 대사 (원문 그대로 + 괄호 안에 한국어 뜻)\n"
             "- structure: 시간 순서의 구성 단계 (예: '0~2초 충격 장면', '2~10초 설명')\n"
@@ -276,19 +267,17 @@ def breakdown(data: dict, model: str) -> Breakdown:
             "- source_risk: 원본이 남의 영상 재업로드·TV·음원 사용으로 보이는지 판단 (저작권·재사용 콘텐츠 위험)\n"
             "화면에서 확인할 수 없는 것은 추측하지 말고 '확인 불가'라고 쓴다. 한국어로 답한다."
         ),
-        messages=[{"role": "user", "content": content}],
-        output_format=Breakdown,
+        f"{frames_note}\n<meta>\n{json.dumps(meta, ensure_ascii=False)}\n</meta>\n"
+        f"<transcript>\n{data['transcript']}\n</transcript>\n\n이 쇼츠를 분석해줘.",
+        images=[fr["path"] for fr in data["frames"]],
+        effort="medium", max_tokens=8000,
     )
-    if resp.parsed_output is None:
-        raise RuntimeError(f"{data['id']}: 분석 응답을 받지 못했습니다 (stop_reason={resp.stop_reason})")
-    return resp.parsed_output
 
 
 def playbook(context: str, items: list[dict], model: str) -> Playbook:
-    client = anthropic.Anthropic()
-    resp = client.messages.parse(
-        model=model, max_tokens=8000, thinking={"type": "adaptive"}, output_config={"effort": "high"},
-        system=(
+    return llm.parse(
+        Playbook,
+        (
             "너는 쇼츠 채널 전략가다. 여러 터진 영상의 분해 결과와 채널 수치를 종합한다.\n"
             "- patterns: 여러 영상에 반복되는 성공 요인만 (한 영상에만 있는 건 제외)\n"
             "- recommended_settings: 제작 프로그램에 넣을 구체적 값 (길이 초, 자막 스타일, 제목 글자 수, 업로드 시각 JST, 주기)\n"
@@ -296,12 +285,9 @@ def playbook(context: str, items: list[dict], model: str) -> Playbook:
             "- avoid: 남의 영상 재업로드, 상업 음원, 번역만 한 영상처럼 수익화·저작권 위험이 있는 요소\n"
             "한국어로 답한다."
         ),
-        messages=[{"role": "user", "content": f"{context}\n\n<videos>\n{json.dumps(items, ensure_ascii=False)}\n</videos>"}],
-        output_format=Playbook,
+        f"{context}\n\n<videos>\n{json.dumps(items, ensure_ascii=False)}\n</videos>",
+        effort="high", max_tokens=8000,
     )
-    if resp.parsed_output is None:
-        raise RuntimeError("종합 분석 응답을 받지 못했습니다")
-    return resp.parsed_output
 
 
 # ---------- 실행 흐름 ----------

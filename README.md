@@ -17,9 +17,13 @@
 
 ```bash
 pip install -r requirements.txt
-export ANTHROPIC_API_KEY=...     # 구간 선택, 포맷 분류, 자연어 수정
-export YOUTUBE_API_KEY=...       # trends (Google Cloud → YouTube Data API v3 사용 설정 → API 키)
+export YOUTUBE_API_KEY=...       # trends / viral (Google Cloud → YouTube Data API v3 사용 설정 → API 키)
 ```
+
+**Claude 호출 방식** (`config/default.yaml`의 `llm.backend`, 또는 환경변수 `SHORTS_LLM`)
+- `claude-code` (기본, Claude Code가 설치돼 있으면 자동 선택): `claude -p`로 호출합니다. **Pro/Max 구독 사용량 안에서** 돌아가고 API 키가 필요 없습니다. 먼저 터미널에서 `claude`로 한 번 로그인해 두세요.
+- `api`: Anthropic API를 씁니다. `ANTHROPIC_API_KEY`가 필요하고, 구독과 별도로 사용량만큼 요금이 나옵니다.
+
 ffmpeg는 시스템에 설치된 것을 쓰고, 없으면 `imageio-ffmpeg` 번들을 씁니다. 한글 폰트는 `assets/fonts/`에 Pretendard 같은 `.ttf`/`.otf`를 넣고 `config/default.yaml`의 `font`에 이름을 적으면 됩니다.
 
 ## 사용법

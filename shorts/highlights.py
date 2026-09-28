@@ -2,9 +2,9 @@
 import json
 from pathlib import Path
 
-import anthropic
 from pydantic import BaseModel
 
+from . import llm
 from .transcribe import all_words
 
 SYSTEM = """너는 유튜브 쇼츠 편집자다. 롱폼 영상 전사본에서 조회수가 잘 나올 쇼츠 구간을 고른다.
@@ -47,25 +47,12 @@ def select(transcript: dict, out: Path, cfg: dict) -> list[dict]:
     system = SYSTEM.format(
         speed=e["speed"], raw_min=s["min_sec"] * shrink, raw_max=s["max_sec"] * shrink, guide=s["guide"]
     )
-    client = anthropic.Anthropic()
-    resp = client.messages.parse(
-        model=cfg["llm"]["model"],
-        max_tokens=16000,
-        thinking={"type": "adaptive"},
-        output_config={"effort": cfg["llm"]["effort"]},
-        system=system,
-        messages=[{
-            "role": "user",
-            "content": f"쇼츠 {s['count']}개를 골라줘.\n\n<transcript>\n{format_transcript(transcript)}\n</transcript>",
-        }],
-        output_format=Selection,
+    result = llm.parse(
+        Selection, system,
+        f"쇼츠 {s['count']}개를 골라줘.\n\n<transcript>\n{format_transcript(transcript)}\n</transcript>",
+        effort=cfg["llm"]["effort"],
     )
-    if resp.stop_reason == "refusal":
-        raise RuntimeError("Claude가 요청을 거절했습니다. 전사본 내용을 확인하세요.")
-    if resp.stop_reason == "max_tokens" or resp.parsed_output is None:
-        raise RuntimeError("구간 선택 응답이 잘렸습니다. select.count를 줄여 다시 실행하세요.")
-
-    clips = snap(resp.parsed_output.clips, transcript)
+    clips = snap(result.clips, transcript)
     out.write_text(json.dumps(clips, ensure_ascii=False, indent=1), encoding="utf-8")
     return clips
 
