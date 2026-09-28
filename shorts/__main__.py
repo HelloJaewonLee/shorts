@@ -9,6 +9,7 @@
   python -m shorts revise <이름> "목소리 좀 빠르게, 제목 굵게" [--clip clip_01]
 """
 import argparse
+import os
 import re
 import json
 import shutil
@@ -172,7 +173,20 @@ def cmd_viral(args) -> None:
     print(f"\n리포트: {report.relative_to(config.ROOT)}")
 
 
+def load_env() -> None:
+    """프로젝트 폴더의 .env (KEY=VALUE 줄) 를 환경변수로 읽는다. 이미 설정된 값은 덮어쓰지 않는다."""
+    env = config.ROOT / ".env"
+    if not env.exists():
+        return
+    for line in env.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            k, v = line.split("=", 1)
+            os.environ.setdefault(k.strip(), v.strip().strip("'\""))
+
+
 def main() -> None:
+    load_env()
     ap = argparse.ArgumentParser(prog="shorts", description="롱폼 영상 → 쇼츠 자동 생성")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
