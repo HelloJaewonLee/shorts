@@ -275,6 +275,9 @@ def breakdown(data: dict, model: str) -> Breakdown:
 
 
 def playbook(context: str, items: list[dict], model: str) -> Playbook:
+    if not items:
+        note = "분해한 영상이 없어 종합하지 못했습니다. 유튜브 봇 확인으로 영상 정보를 못 받았을 수 있습니다 (YTDLP_BROWSER 설정 확인)."
+        return Playbook(summary=note, patterns=[], hook_templates=[], recommended_settings=[], formats_for_cc_by=[], avoid=[])
     return llm.parse(
         Playbook,
         (
@@ -396,7 +399,8 @@ def run_discover(keyword: str, out_root: Path, days: int, limit: int, region: st
     pb = playbook(f"키워드: {keyword}, 지역: {region}, 최근 {days}일", items, model)
 
     L = [f"# 터진 쇼츠 찾기: {keyword} ({region}, 최근 {days}일)", "",
-         f"수집 {len(rows)}개 중 성과도(구독자 대비)와 기여도(채널 평균 대비)가 함께 높은 영상 {len(hits)}개를 분해했습니다.", "",
+         f"수집 {len(rows)}개 중 성과도(구독자 대비)와 기여도(채널 평균 대비)가 함께 높은 영상 {len(hits)}개를 골랐고, "
+         f"그중 {len(items)}개를 화면·대사까지 분해했습니다.", "",
          "## 터진 영상", "", "| 성과도 | 기여도 | 조회수 | 구독자 | 길이 | 제목 |", "|---|---|---|---|---|---|"]
     L += [f"| {h['perf']} {grade('perf', h['perf'])} | {h.get('contrib')} {grade('contrib', h.get('contrib'))} | "
           f"{fmt_num(h['views'])} | {fmt_num(h['subs'])} | {h['sec']}초 | [{h['title'].replace('|', '/')}]({h['url']}) |" for h in hits]
