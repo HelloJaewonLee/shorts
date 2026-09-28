@@ -4,3 +4,4 @@ trends/
 __pycache__/
 *.pyc
 .env
+ref_scripts/
