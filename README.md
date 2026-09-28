@@ -40,6 +40,26 @@ python -m shorts revise ep12 "clip_02 제목을 '월 1억 버는 사람들의 �
 python -m shorts render ep12
 ```
 
+## 터진 쇼츠·채널 분석 (`viral`)
+
+```bash
+# 키워드로 터진 쇼츠와 급성장 채널 찾기 (기본: 일본, 최근 30일)
+python -m shorts viral discover "猫 おもしろ" --region JP --lang ja --top 8
+
+# 채널 하나 깊게: 채널 평균 대비 터진 영상, 업로드 주기·시간대(JST), 길이, 제목 패턴
+python -m shorts viral channel @채널핸들 --top 8
+
+# 직접 고른 쇼츠 분석
+python -m shorts viral video https://youtube.com/shorts/xxxx https://youtube.com/shorts/yyyy
+```
+
+영상마다 모으는 자료는 메타데이터, 자막(대사), 가장 많이 다시 본 구간, 첫 0~3초와 중간·끝 화면 캡처, 컷 전환 수입니다. 이 자료로 Claude가 훅, 구성, 자막 스타일, 편집 속도, 터진 이유, 재사용 틀, 소스 위험을 분해합니다. 여러 영상의 공통점은 제작 설정 제안(playbook)으로 묶어 `viral/.../report.md`에 저장합니다.
+
+유튜브가 봇 확인으로 다운로드를 막으면 저해상도 스토리보드로 대신 분석합니다. 이 경우 화면 글씨는 읽기 어렵습니다. 로그인된 브라우저 쿠키를 쓰면 대부분 해결됩니다.
+```bash
+export YTDLP_BROWSER=chrome        # 또는 export YTDLP_COOKIES=~/cookies.txt
+```
+
 ## 지표 (뷰트랩 항목 대응)
 
 | 지표 | 계산 | 의미 |

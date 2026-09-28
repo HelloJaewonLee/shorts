@@ -1,6 +1,9 @@
 """사용법:
   python -m shorts trends "키워드" [--days 30] [--limit 200]      # 1단계: 어떤 쇼츠가 많고 잘 되는지
   python -m shorts make  <영상파일|URL> [--trend 키워드] [--count 5]  # 2단계: 롱폼 → 쇼츠
+  python -m shorts viral discover "猫" --region JP --lang ja       # 터진 쇼츠·급성장 채널 찾기
+  python -m shorts viral channel @handle                           # 채널 하나 깊게 분석
+  python -m shorts viral video <URL> [<URL> ...]                   # 고른 쇼츠 분석
   python -m shorts list  <이름>
   python -m shorts render <이름> [--clip clip_01]
   python -m shorts revise <이름> "목소리 좀 빠르게, 제목 굵게" [--clip clip_01]
@@ -13,7 +16,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import config, edit, ff, highlights, revise, transcribe, trends
+from . import config, edit, ff, highlights, revise, transcribe, trends, viral
 
 JOBS = config.ROOT / "jobs"
 TRENDS = config.ROOT / "trends"
@@ -155,6 +158,20 @@ def cmd_trends(args) -> None:
     print(f"이 기준으로 쇼츠 만들기: python -m shorts make <영상> --trend \"{args.keyword}\"")
 
 
+VIRAL = config.ROOT / "viral"
+
+
+def cmd_viral(args) -> None:
+    model = config.load()["llm"]["model"]
+    if args.mode == "discover":
+        report = viral.run_discover(args.target[0], VIRAL, args.days, args.limit, args.region, args.lang, args.top, model)
+    elif args.mode == "channel":
+        report = viral.run_channel(args.target[0], VIRAL, args.limit, args.top, model)
+    else:
+        report = viral.run_videos(args.target, VIRAL, model)
+    print(f"\n리포트: {report.relative_to(config.ROOT)}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(prog="shorts", description="롱폼 영상 → 쇼츠 자동 생성")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -166,6 +183,16 @@ def main() -> None:
     t.add_argument("--region", default="KR")
     t.add_argument("--lang", default="ko")
     t.set_defaults(func=cmd_trends)
+
+    v = sub.add_parser("viral", help="터진 쇼츠·채널 찾아서 분석")
+    v.add_argument("mode", choices=["discover", "channel", "video"])
+    v.add_argument("target", nargs="+", help="discover: 키워드 / channel: @핸들·채널 URL / video: 쇼츠 URL들")
+    v.add_argument("--top", type=int, default=8, help="자세히 분해할 영상 수 (기본 8)")
+    v.add_argument("--days", type=int, default=30)
+    v.add_argument("--limit", type=int, default=200, help="수집할 영상 수")
+    v.add_argument("--region", default="JP")
+    v.add_argument("--lang", default="ja")
+    v.set_defaults(func=cmd_viral)
 
     m = sub.add_parser("make", help="영상 하나로 쇼츠 여러 개 만들기")
     m.add_argument("source", help="영상 파일 경로 또는 URL")
