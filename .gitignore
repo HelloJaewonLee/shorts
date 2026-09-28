@@ -1,1 +1,6 @@
 shorts_script.txt
+jobs/
+trends/
+__pycache__/
+*.pyc
+.env

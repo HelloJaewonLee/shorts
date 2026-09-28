@@ -1,0 +1,63 @@
+# 쇼츠 생성 기본 설정. 작업 폴더(jobs/<이름>/config.yaml)에 복사된 값이 우선합니다.
+# revise 명령("목소리 빠르게", "제목 굵게")은 이 값들을 바꿉니다.
+
+llm:
+  model: claude-opus-5
+  effort: high
+
+transcribe:
+  model: large-v3        # 빠르게 시험할 땐 small / medium
+  language: ko
+  device: auto           # auto | cpu | cuda
+
+select:
+  count: 5               # 뽑을 쇼츠 개수
+  min_sec: 20            # 완성본 기준 길이 (배속·무음 제거 후)
+  max_sec: 58
+  guide: >-
+    첫 3초 안에 궁금증이나 충격을 주는 문장으로 시작하고,
+    앞뒤 맥락 없이도 이해되는 하나의 이야기로 끝나는 구간을 고른다.
+    숫자·반전·강한 주장·구체적 방법이 있는 구간을 우선한다.
+
+edit:
+  speed: 1.3             # 참고 영상 설정: 1.3배속
+  remove_silence: true   # 무음 제거
+  max_gap: 0.35          # 이보다 긴 말 사이 공백은 잘라냄(초)
+  pad: 0.08              # 잘라낸 경계 앞뒤 여유(초)
+  reframe: blur          # blur: 원본 비율 유지 + 흐린 배경 / crop: 가운데를 9:16으로 자름
+  crop_x: 0.5            # crop일 때 가로 위치 (0=왼쪽, 1=오른쪽)
+  zoom: 1.0              # blur일 때 원본 확대 배율 (1.0 = 가로 꽉 차게)
+
+title:
+  enabled: true
+  font: WenQuanYi Zen Hei
+  size: 78
+  bold: true
+  color: "#FFFFFF"
+  box_color: "#000000"
+  box_alpha: 0.0         # 0 = 불투명, 1 = 투명
+  margin_top: 170
+
+caption:
+  enabled: true
+  font: WenQuanYi Zen Hei
+  size: 74
+  bold: true
+  color: "#FFFFFF"
+  highlight: "#FFD400"   # 지금 말하는 단어 색
+  outline: 6
+  outline_color: "#000000"
+  max_chars: 14          # 한 줄 최대 글자 수
+  margin_bottom: 520
+
+audio:
+  bgm: ""                # assets/bgm/xxx.mp3 경로. 비우면 BGM 없음
+  bgm_volume: 0.12
+  duck: true             # 말할 때 BGM 자동으로 줄이기
+
+output:
+  width: 1080
+  height: 1920
+  fps: 30
+  crf: 20
+  fonts_dir: assets/fonts   # Pretendard 등 폰트 파일을 넣으면 font 이름으로 사용 가능
